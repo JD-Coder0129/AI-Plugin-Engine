@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Voice Assistant",
+    "version": "1.0",
+    "memory_usage": 120,
+    "install_time": "2025-10-15 21:43:44"
+  },
+  {
+    "name": "Reminder Manager",
+    "version": "2.1",
+    "memory_usage": 80,
+    "install_time": "2025-10-15 21:43:44"
+  }
+]
