@@ -3,6 +3,35 @@ import time
 import json
 import os
 
+# Try to import colorama for cross-platform colors; fallback to plain/no-op if unavailable
+try:
+    import colorama
+    from colorama import Fore, Style
+    colorama.init(autoreset=True)
+except Exception:
+    class _F:
+        RED = '\033[31m'
+        GREEN = '\033[32m'
+        YELLOW = '\033[33m'
+        BLUE = '\033[34m'
+        MAGENTA = '\033[35m'
+        CYAN = '\033[36m'
+        RESET = '\033[0m'
+    class _S:
+        BRIGHT = '\033[1m'
+        RESET_ALL = '\033[0m'
+    Fore = _F()
+    Style = _S()
+
+C_RESET = Style.RESET_ALL
+C_BOLD = Style.BRIGHT
+C_GREEN = Fore.GREEN
+C_RED = Fore.RED
+C_YELLOW = Fore.YELLOW
+C_BLUE = Fore.BLUE
+C_CYAN = Fore.CYAN
+C_MAGENTA = Fore.MAGENTA
+
 PLUGIN_JSON_PATH = "plugins.json"
 
 def load_plugins_from_json():
@@ -17,12 +46,11 @@ def save_plugins_to_json():
         json.dump([plugin.to_dict() for plugin in JarvisPlugin.installed_plugins], f, indent=2)
 
 class JarvisPlugin:
-    """Represents a single AI plugin for Jarvis with metadata and utility methods."""
-
     installed_plugins = []
 
     def __init__(self, name, version, memory_usage, install_time=None, from_json=False):
         if not from_json and not JarvisPlugin.validate_plugin_data(name, version, memory_usage):
+            print(f"{C_RED}❌ Invalid plugin data!{C_RESET}")
             raise ValueError("Invalid plugin data! Name must be string, version as str/float, memory positive integer.")
 
         self.name = name
@@ -33,7 +61,7 @@ class JarvisPlugin:
         if not from_json:
             JarvisPlugin.installed_plugins.append(self)
             save_plugins_to_json()
-            print(f"✅ Plugin installed: {self.name} (v{self.version}) - {self.memory_usage}MB")
+            print(f"{C_GREEN}✅ Plugin installed: {C_BOLD}{self.name}{C_RESET}{C_GREEN} (v{self.version}) - {self.memory_usage}MB{C_RESET}")
 
     def to_dict(self):
         return {
@@ -43,9 +71,8 @@ class JarvisPlugin:
             "install_time": self.install_time
         }
 
-    # ---------- Magic Methods ----------
     def __str__(self):
-        return f"🔹 Plugin: {self.name} (v{self.version}) - {self.memory_usage}MB"
+        return f"{C_CYAN}🔹 {C_BOLD}{self.name}{C_RESET}{C_CYAN} (v{self.version}){C_RESET}{C_MAGENTA} - {self.memory_usage}MB{C_RESET}"
 
     def __repr__(self):
         return f"JarvisPlugin(name={self.name!r}, version={self.version!r}, memory_usage={self.memory_usage!r})"
@@ -68,7 +95,6 @@ class JarvisPlugin:
             return self.memory_usage < other.memory_usage
         return NotImplemented
 
-    # ---------- Static & Class Methods ----------
     @staticmethod
     def validate_plugin_data(name, version, memory_usage):
         return isinstance(name, str) and isinstance(version, (str, float)) and isinstance(memory_usage, int) and memory_usage > 0
@@ -84,39 +110,43 @@ class JarvisPlugin:
     @classmethod
     def show_all_plugins(cls):
         if not cls.installed_plugins:
-            return "No plugins currently installed."
-        return "\n".join([str(p) for p in cls.installed_plugins])
+            return f"{C_YELLOW}No plugins currently installed.{C_RESET}"
+        lines = []
+        for p in cls.installed_plugins:
+            lines.append(str(p) + f" {C_BLUE}@ installed: {p.install_time}{C_RESET}")
+        return "\n".join(lines)
 
 class JarvisPluginManager:
-    """Manages all plugin operations for Jarvis."""
-
     def __init__(self):
         self.plugins = []
 
     def add_plugin(self, plugin):
         if not isinstance(plugin, JarvisPlugin):
-            print("❌ Invalid plugin type.")
+            print(f"{C_RED}❌ Invalid plugin type.{C_RESET}")
             return
         if plugin in self.plugins:
-            print(f"⚠️ Plugin {plugin.name} already added.")
+            print(f"{C_YELLOW}⚠️ Plugin {C_BOLD}{plugin.name}{C_RESET}{C_YELLOW} already added.{C_RESET}")
         else:
             self.plugins.append(plugin)
-            print(f"🔧 Plugin '{plugin.name}' successfully registered in Jarvis Manager.")
+            print(f"{C_GREEN}🔧 Plugin '{C_BOLD}{plugin.name}{C_RESET}{C_GREEN}' successfully registered in Jarvis Manager.{C_RESET}")
 
     def remove_plugin(self, plugin_name):
         for plugin in self.plugins:
             if plugin.name == plugin_name:
                 self.plugins.remove(plugin)
-                JarvisPlugin.installed_plugins.remove(plugin)
+                try:
+                    JarvisPlugin.installed_plugins.remove(plugin)
+                except ValueError:
+                    pass
                 save_plugins_to_json()
-                print(f"🗑️ Plugin '{plugin_name}' uninstalled successfully.")
+                print(f"{C_GREEN}🗑️ Plugin '{C_BOLD}{plugin_name}{C_RESET}{C_GREEN}' uninstalled successfully.{C_RESET}")
                 return
-        print(f"⚠️ Plugin '{plugin_name}' not found.")
+        print(f"{C_YELLOW}⚠️ Plugin '{C_BOLD}{plugin_name}{C_RESET}{C_YELLOW}' not found.{C_RESET}")
 
     def list_plugins(self):
         if not self.plugins:
-            return "No plugins installed in manager."
-        return "\n".join(f"{idx+1}. {plugin}" for idx, plugin in enumerate(self.plugins))
+            return f"{C_YELLOW}No plugins installed in manager.{C_RESET}"
+        return "\n".join(f"{C_BLUE}{idx+1}. {C_RESET}{plugin}" for idx, plugin in enumerate(self.plugins))
 
     def show_all_plugins(self):
         return JarvisPlugin.show_all_plugins()
@@ -125,52 +155,49 @@ class JarvisPluginManager:
         return len(self.plugins)
 
     def __str__(self):
-        return f"Jarvis Plugin Manager: {len(self.plugins)} plugins loaded, {JarvisPlugin.total_memory()}MB total memory."
+        return (f"{C_MAGENTA}Jarvis Plugin Manager:{C_RESET} {C_BOLD}{len(self.plugins)}{C_RESET} plugins loaded, "
+                f"{C_GREEN}{JarvisPlugin.total_memory()}MB{C_RESET} total memory.")
 
-# ---------- Usage Example ----------
 if __name__ == "__main__":
-    print("=== ⚙️ Jarvis Plugin Engine v1 ===\n")
+    print(f"{C_CYAN}{C_BOLD}=== ⚙️ Jarvis Plugin Engine v1 ==={C_RESET}\n")
 
-    # Load plugins from JSON file
     JarvisPlugin.installed_plugins = load_plugins_from_json()
 
     manager = JarvisPluginManager()
-    # Add already installed plugins to manager
     for plugin in JarvisPlugin.installed_plugins:
         manager.add_plugin(plugin)
 
-    # Create Plugins
+    # Sample installs (will print colored messages)
     plugin1 = JarvisPlugin("Voice Assistant", "1.0", 120)
     plugin2 = JarvisPlugin("Reminder Manager", "2.1", 80)
     plugin3 = JarvisPlugin("Weather Analyzer", "1.5", 60)
 
-    # Add to Manager
-    print("\n🔧 Adding Plugins:")
-    time.sleep(1)
+    print(f"\n{C_BLUE}🔧 Adding Plugins:{C_RESET}")
+    time.sleep(0.5)
     manager.add_plugin(plugin1)
     manager.add_plugin(plugin2)
     manager.add_plugin(plugin3)
 
-    print("\n📜 Listing Installed Plugins:")
-    time.sleep(1)
+    print(f"\n{C_YELLOW}📜 Listing Installed Plugins:{C_RESET}")
+    time.sleep(0.5)
     print(manager.list_plugins())
 
-    print("\n📊 System Summary:")
-    time.sleep(1)
+    print(f"\n{C_MAGENTA}📊 System Summary:{C_RESET}")
+    time.sleep(0.5)
     print(manager)
-    print(f"Total Plugins: {JarvisPlugin.total_plugins()}")
-    print(f"Total Memory: {JarvisPlugin.total_memory()}MB")
+    print(f"{C_BLUE}Total Plugins:{C_RESET} {C_BOLD}{JarvisPlugin.total_plugins()}{C_RESET}")
+    print(f"{C_BLUE}Total Memory:{C_RESET} {C_GREEN}{JarvisPlugin.total_memory()}MB{C_RESET}")
 
-    print("\n🧮 Plugin Comparison:")
-    time.sleep(1)
-    print(f"{plugin1.name} + {plugin2.name} = {plugin1 + plugin2}MB total memory")
-    print(f"{plugin1.name} < {plugin2.name} ? {plugin1 < plugin2}")
+    print(f"\n{C_CYAN}🧮 Plugin Comparison:{C_RESET}")
+    time.sleep(0.5)
+    print(f"{C_BOLD}{plugin1.name}{C_RESET} + {C_BOLD}{plugin2.name}{C_RESET} = {C_GREEN}{plugin1 + plugin2}MB{C_RESET} total memory")
+    print(f"{C_BOLD}{plugin1.name}{C_RESET} < {C_BOLD}{plugin2.name}{C_RESET} ? {C_YELLOW}{plugin1 < plugin2}{C_RESET}")
 
-    print("\n🗑️ Removing a Plugin:")
-    time.sleep(1)
-    manager.remove_plugin("Weather Analyzer")
-    print(manager)
+    # print(f"\n{C_RED}🗑️ Removing a Plugin:{C_RESET}")
+    # time.sleep(0.5)
+    # manager.remove_plugin("Weather Analyzer")
+    # print(manager)
 
-    print("\n📜 Showing All Plugins:")
-    time.sleep(1)
+    print(f"\n{C_YELLOW}📜 Showing All Plugins:{C_RESET}")
+    time.sleep(0.5)
     print(JarvisPlugin.show_all_plugins())
